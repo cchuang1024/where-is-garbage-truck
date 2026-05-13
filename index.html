@@ -104,7 +104,27 @@
       color: #2d7d46;
       white-space: nowrap;
     }
-    .tag.time { background: #f0f0f0; color: #444; }
+    .tag.time     { background: #f0f0f0; color: #444; }
+    .tag.status   { background: #fff3cd; color: #856404; }
+    .tag.upcoming { background: #d1ecf1; color: #0c5460; }
+
+    #toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    #toolbar button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #2d7d46;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #toolbar button:disabled { background: #ccc; cursor: default; }
   </style>
 </head>
 <body>
@@ -117,6 +137,10 @@
     <div class="spinner"></div>
     定位中，請稍候…
   </div>
+  <div id="toolbar" hidden>
+    <button id="btnUpcoming" disabled>現在之後還有幾班？</button>
+    <button id="btnAll" hidden>顯示全天</button>
+  </div>
   <div id="summary" hidden></div>
   <div id="results"></div>
 </main>
@@ -126,6 +150,8 @@
 
 const DAY_NAMES = ['日','一','二','三','四','五','六'];
 const MAX_DIST  = 200;
+
+let allNearby = [];
 
 function haversine(lat1, lng1, lat2, lng2) {
   const R  = 6371000;
@@ -142,6 +168,20 @@ function formatTime(hhmm) {
   return s.slice(0, 2) + ':' + s.slice(2);
 }
 
+function nowHHMM() {
+  const d = new Date();
+  return d.getHours() * 100 + d.getMinutes();
+}
+
+function statusTag(stop) {
+  const now  = nowHHMM();
+  const nowMin   = Math.floor(now / 100) * 60 + (now % 100);
+  const arrMin   = Math.floor(stop.arrive / 100) * 60 + (stop.arrive % 100);
+  const minsLeft = arrMin - nowMin;
+  if (minsLeft > 0) return `<span class="tag upcoming">⏱ ${minsLeft} 分鐘後抵達</span>`;
+  return `<span class="tag status">🚛 現正停靠</span>`;
+}
+
 function setStatus(msg, cls = '') {
   const el = document.getElementById('status');
   el.innerHTML = msg;
@@ -149,7 +189,7 @@ function setStatus(msg, cls = '') {
   el.hidden = false;
 }
 
-function render(stops) {
+function render(stops, showStatusTag = false) {
   const status  = document.getElementById('status');
   const summary = document.getElementById('summary');
   const results = document.getElementById('results');
@@ -158,6 +198,8 @@ function render(stops) {
 
   if (stops.length === 0) {
     setStatus('附近 200 公尺內今日無垃圾車站點。', 'error');
+    summary.hidden = true;
+    results.innerHTML = '';
     return;
   }
 
@@ -175,6 +217,7 @@ function render(stops) {
         <div class="info-meta">
           <span class="tag time">🕐 ${formatTime(s.arrive)}–${formatTime(s.depart)}</span>
           <span class="tag">${s.route}</span>
+          ${showStatusTag ? statusTag(s) : ''}
         </div>
       </div>
     </div>
@@ -185,12 +228,17 @@ function onSuccess(pos) {
   const lat = pos.coords.latitude;
   const lng = pos.coords.longitude;
 
-  const nearby = TRUCKS
+  allNearby = TRUCKS
     .map(t => ({ ...t, dist: haversine(lat, lng, t.lat, t.lng) }))
     .filter(t => t.dist <= MAX_DIST)
     .sort((a, b) => a.arrive - b.arrive);
 
-  render(nearby);
+  render(allNearby);
+
+  const toolbar     = document.getElementById('toolbar');
+  const btnUpcoming = document.getElementById('btnUpcoming');
+  toolbar.hidden      = false;
+  btnUpcoming.disabled = false;
 }
 
 function onError(err) {
@@ -218,6 +266,30 @@ function init() {
     maximumAge: 60000,
   });
 }
+
+document.getElementById('btnUpcoming').addEventListener('click', () => {
+  const now      = nowHHMM();
+  const upcoming = allNearby.filter(s => s.depart >= now);
+  const btnAll   = document.getElementById('btnUpcoming');
+
+  if (upcoming.length === 0) {
+    document.getElementById('status').hidden = false;
+    setStatus('今日附近班次已全數離站。');
+    document.getElementById('summary').hidden = true;
+    document.getElementById('results').innerHTML = '';
+  } else {
+    render(upcoming, true);
+  }
+
+  document.getElementById('btnUpcoming').hidden = true;
+  document.getElementById('btnAll').hidden = false;
+});
+
+document.getElementById('btnAll').addEventListener('click', () => {
+  render(allNearby, false);
+  document.getElementById('btnAll').hidden = true;
+  document.getElementById('btnUpcoming').hidden = false;
+});
 
 document.addEventListener('DOMContentLoaded', init);
 </script>

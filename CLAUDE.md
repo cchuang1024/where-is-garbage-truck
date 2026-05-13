@@ -67,3 +67,12 @@
 - Feature：`feat-001`, `feat-002`, ...（三位數補零）
 - Fix：`fix-001`, `fix-002`, ...（三位數補零）
 - 編號不重用，作廢的 feature 移至 `archived/` 並保留編號
+
+## Git / GitHub
+
+CCStudio 目錄下所有專案的 GitHub 操作一律使用金鑰 `~/.ssh/id_ecdsa`。
+
+push 指令範例：
+```bash
+GIT_SSH_COMMAND="ssh -i ~/.ssh/id_ecdsa -o IdentitiesOnly=yes" git push
+```
