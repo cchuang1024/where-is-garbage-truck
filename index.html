@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>附近垃圾車</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f4f4;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #2d7d46;
+      color: #fff;
+      padding: 20px 16px 16px;
+      text-align: center;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    header p  { font-size: 0.85rem; opacity: 0.85; margin-top: 4px; }
+
+    main {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    #status {
+      text-align: center;
+      padding: 32px 16px;
+      color: #666;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    #status.error { color: #c0392b; }
+    #status.rest  { color: #e67e22; font-size: 1.05rem; font-weight: 600; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 4px solid #ddd;
+      border-top-color: #2d7d46;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #summary {
+      font-size: 0.85rem;
+      color: #555;
+      margin-bottom: 12px;
+      padding: 0 2px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 0 12px;
+      align-items: start;
+    }
+
+    .dist {
+      text-align: center;
+      padding-top: 2px;
+    }
+    .dist-num {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #2d7d46;
+      line-height: 1;
+    }
+    .dist-unit {
+      font-size: 0.7rem;
+      color: #888;
+    }
+
+    .info-addr {
+      font-size: 0.9rem;
+      font-weight: 600;
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+
+    .info-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #eef7f1;
+      color: #2d7d46;
+      white-space: nowrap;
+    }
+    .tag.time { background: #f0f0f0; color: #444; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🗑️ 附近垃圾車</h1>
+  <p>顯示今日 200 公尺內的所有站點</p>
+</header>
+<main>
+  <div id="status">
+    <div class="spinner"></div>
+    定位中，請稍候…
+  </div>
+  <div id="summary" hidden></div>
+  <div id="results"></div>
+</main>
+<script src="data.js"></script>
+<script>
+'use strict';
+
+const DAY_NAMES = ['日','一','二','三','四','五','六'];
+const MAX_DIST  = 200;
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R  = 6371000;
+  const f1 = lat1 * Math.PI / 180;
+  const f2 = lat2 * Math.PI / 180;
+  const df = (lat2 - lat1) * Math.PI / 180;
+  const dl = (lng2 - lng1) * Math.PI / 180;
+  const a  = Math.sin(df/2)**2 + Math.cos(f1)*Math.cos(f2)*Math.sin(dl/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatTime(hhmm) {
+  const s = String(hhmm).padStart(4, '0');
+  return s.slice(0, 2) + ':' + s.slice(2);
+}
+
+function setStatus(msg, cls = '') {
+  const el = document.getElementById('status');
+  el.innerHTML = msg;
+  el.className = cls;
+  el.hidden = false;
+}
+
+function render(stops) {
+  const status  = document.getElementById('status');
+  const summary = document.getElementById('summary');
+  const results = document.getElementById('results');
+
+  status.hidden = true;
+
+  if (stops.length === 0) {
+    setStatus('附近 200 公尺內今日無垃圾車站點。', 'error');
+    return;
+  }
+
+  summary.textContent = `找到 ${stops.length} 個站點`;
+  summary.hidden = false;
+
+  results.innerHTML = stops.map(s => `
+    <div class="card">
+      <div class="dist">
+        <div class="dist-num">${Math.round(s.dist)}</div>
+        <div class="dist-unit">公尺</div>
+      </div>
+      <div>
+        <div class="info-addr">${s.addr}</div>
+        <div class="info-meta">
+          <span class="tag time">🕐 ${formatTime(s.arrive)}–${formatTime(s.depart)}</span>
+          <span class="tag">${s.route}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function onSuccess(pos) {
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
+
+  const nearby = TRUCKS
+    .map(t => ({ ...t, dist: haversine(lat, lng, t.lat, t.lng) }))
+    .filter(t => t.dist <= MAX_DIST)
+    .sort((a, b) => a.arrive - b.arrive);
+
+  render(nearby);
+}
+
+function onError(err) {
+  if (err.code === err.PERMISSION_DENIED) {
+    setStatus('需要定位權限才能查詢附近站點。<br>請在瀏覽器設定中允許本頁面存取位置。', 'error');
+  } else {
+    setStatus('定位失敗，請確認裝置 GPS 已開啟後重新整理頁面。', 'error');
+  }
+}
+
+function init() {
+  const day = new Date().getDay();
+  if (day === 0 || day === 3) {
+    setStatus(`今日（週${DAY_NAMES[day]}）垃圾車休息，明天見。`, 'rest');
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    setStatus('您的瀏覽器不支援定位功能。', 'error');
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+    timeout: 10000,
+    maximumAge: 60000,
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
