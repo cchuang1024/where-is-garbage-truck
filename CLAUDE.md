@@ -38,6 +38,20 @@
 - 包含：測試情境（正常/邊界/例外）、手動測試步驟、預期結果
 - 以 SPEC.md 為標準，PLAN.md 的實作細節不影響驗收標準
 
+## Design 規範
+
+每個 `design-NNN/` 目錄包含兩份文件：
+
+### DESIGN.md — UI 設計內容
+- 視覺呈現、排版、元件、配色、互動行為
+- 可包含 ASCII mockup 或文字描述的版面結構
+- 不涉及實作細節（CSS 命名、JS 邏輯等）
+
+### ACCEPT.md — User Acceptance Test
+- 從使用者角度驗證設計是否達成預期體驗
+- 包含：視覺檢查項目、互動流程、裝置相容性
+- 以 DESIGN.md 為標準
+
 ## Fix 規範
 
 每個 `fix-NNN/` 目錄包含兩份文件：
@@ -66,7 +80,8 @@
 
 - Feature：`feat-001`, `feat-002`, ...（三位數補零）
 - Fix：`fix-001`, `fix-002`, ...（三位數補零）
-- 編號不重用，作廢的 feature 移至 `archived/` 並保留編號
+- Design：`design-001`, `design-002`, ...（三位數補零）
+- 編號不重用，完成或作廢的項目移至 `archived/` 並保留編號
 
 ## Git / GitHub
 
