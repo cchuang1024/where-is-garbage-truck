@@ -4,146 +4,42 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>附近垃圾車</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f4f4f4;
-      color: #222;
-      min-height: 100vh;
-    }
-
-    header {
-      background: #2d7d46;
-      color: #fff;
-      padding: 20px 16px 16px;
-      text-align: center;
-    }
-    header h1 { font-size: 1.3rem; font-weight: 700; }
-    header p  { font-size: 0.85rem; opacity: 0.85; margin-top: 4px; }
-
-    main {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-
-    #status {
-      text-align: center;
-      padding: 32px 16px;
-      color: #666;
-      font-size: 0.95rem;
-      line-height: 1.6;
-    }
-    #status.error { color: #c0392b; }
-    #status.rest  { color: #e67e22; font-size: 1.05rem; font-weight: 600; }
-
-    .spinner {
-      width: 36px; height: 36px;
-      border: 4px solid #ddd;
-      border-top-color: #2d7d46;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 16px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    #summary {
-      font-size: 0.85rem;
-      color: #555;
-      margin-bottom: 12px;
-      padding: 0 2px;
-    }
-
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 14px 16px;
-      margin-bottom: 10px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-      display: grid;
-      grid-template-columns: 64px 1fr;
-      gap: 0 12px;
-      align-items: start;
-    }
-
-    .dist {
-      text-align: center;
-      padding-top: 2px;
-    }
-    .dist-num {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #2d7d46;
-      line-height: 1;
-    }
-    .dist-unit {
-      font-size: 0.7rem;
-      color: #888;
-    }
-
-    .info-addr {
-      font-size: 0.9rem;
-      font-weight: 600;
-      line-height: 1.4;
-      margin-bottom: 6px;
-    }
-
-    .info-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .tag {
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 20px;
-      background: #eef7f1;
-      color: #2d7d46;
-      white-space: nowrap;
-    }
-    .tag.time     { background: #f0f0f0; color: #444; }
-    .tag.status   { background: #fff3cd; color: #856404; }
-    .tag.upcoming { background: #d1ecf1; color: #0c5460; }
-
-    #toolbar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    #toolbar button {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      background: #2d7d46;
-      color: #fff;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    #toolbar button:disabled { background: #ccc; cursor: default; }
-  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<header>
-  <h1>🗑️ 附近垃圾車</h1>
-  <p>顯示今日 200 公尺內的所有站點</p>
+<body class="bg-gray-100 min-h-screen text-gray-800">
+
+<header id="header" class="bg-teal-700 text-white px-4 pt-5 pb-4 text-center transition-colors duration-300">
+  <h1 class="text-xl font-bold tracking-wide">🚛 附近垃圾車</h1>
+  <p class="text-sm opacity-80 mt-1">顯示今日 200 公尺內的所有站點</p>
 </header>
-<main>
-  <div id="status">
-    <div class="spinner"></div>
+
+<main class="max-w-lg mx-auto px-4 py-4">
+
+  <div id="status" class="text-center py-10 text-gray-500 text-base leading-relaxed">
+    <div class="w-9 h-9 border-4 border-gray-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-4"></div>
     定位中，請稍候…
   </div>
-  <div id="toolbar" hidden>
-    <button id="btnUpcoming" disabled>現在之後還有幾班？</button>
-    <button id="btnAll" hidden>顯示全天</button>
+
+  <div id="toolbar" class="flex gap-2 mb-3" hidden>
+    <button id="btnUpcoming" disabled
+      class="flex-1 py-2.5 rounded-lg text-sm font-semibold cursor-pointer
+             bg-teal-700 text-white
+             disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed">
+      現在之後還有幾班？
+    </button>
+    <button id="btnAll"
+      class="flex-1 py-2.5 rounded-lg text-sm font-semibold cursor-pointer bg-teal-700 text-white"
+      hidden>
+      顯示全天
+    </button>
   </div>
-  <div id="summary" hidden></div>
+
+  <p id="summary" class="text-sm text-gray-400 mb-3 px-0.5" hidden></p>
+
   <div id="results"></div>
+
 </main>
+
 <script src="data.js"></script>
 <script>
 'use strict';
@@ -174,18 +70,27 @@ function nowHHMM() {
 }
 
 function statusTag(stop) {
-  const now  = nowHHMM();
-  const nowMin   = Math.floor(now / 100) * 60 + (now % 100);
-  const arrMin   = Math.floor(stop.arrive / 100) * 60 + (stop.arrive % 100);
-  const minsLeft = arrMin - nowMin;
-  if (minsLeft > 0) return `<span class="tag upcoming">⏱ ${minsLeft} 分鐘後抵達</span>`;
-  return `<span class="tag status">🚛 現正停靠</span>`;
+  const now    = nowHHMM();
+  const nowMin = Math.floor(now / 100) * 60 + (now % 100);
+  const arrMin = Math.floor(stop.arrive / 100) * 60 + (stop.arrive % 100);
+  const mins   = arrMin - nowMin;
+  if (mins > 0) {
+    return `<span class="text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 whitespace-nowrap">⏱ ${mins} 分鐘後抵達</span>`;
+  }
+  return `<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">🚛 現正停靠</span>`;
 }
 
-function setStatus(msg, cls = '') {
+function setStatus(msg, type = '') {
   const el = document.getElementById('status');
   el.innerHTML = msg;
-  el.className = cls;
+  el.className = 'text-center py-10 leading-relaxed';
+  if (type === 'error') {
+    el.classList.add('text-red-500', 'text-base');
+  } else if (type === 'rest') {
+    el.classList.add('text-gray-500', 'text-lg', 'font-semibold');
+  } else {
+    el.classList.add('text-gray-500', 'text-base');
+  }
   el.hidden = false;
 }
 
@@ -207,16 +112,21 @@ function render(stops, showStatusTag = false) {
   summary.hidden = false;
 
   results.innerHTML = stops.map(s => `
-    <div class="card">
-      <div class="dist">
-        <div class="dist-num">${Math.round(s.dist)}</div>
-        <div class="dist-unit">公尺</div>
+    <div class="bg-white rounded-xl shadow-sm p-4 mb-2.5 grid items-start gap-x-3"
+         style="grid-template-columns:64px 1fr">
+      <div class="text-center pt-0.5">
+        <div class="text-2xl font-bold text-teal-700 leading-none">${Math.round(s.dist)}</div>
+        <div class="text-xs text-gray-400 mt-0.5">公尺</div>
       </div>
       <div>
-        <div class="info-addr">${s.addr}</div>
-        <div class="info-meta">
-          <span class="tag time">🕐 ${formatTime(s.arrive)}–${formatTime(s.depart)}</span>
-          <span class="tag">${s.route}</span>
+        <div class="text-sm font-semibold leading-snug mb-2">${s.addr}</div>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 whitespace-nowrap">
+            🕐 ${formatTime(s.arrive)}–${formatTime(s.depart)}
+          </span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 whitespace-nowrap">
+            ${s.route}
+          </span>
           ${showStatusTag ? statusTag(s) : ''}
         </div>
       </div>
@@ -237,7 +147,7 @@ function onSuccess(pos) {
 
   const toolbar     = document.getElementById('toolbar');
   const btnUpcoming = document.getElementById('btnUpcoming');
-  toolbar.hidden      = false;
+  toolbar.hidden       = false;
   btnUpcoming.disabled = false;
 }
 
@@ -250,8 +160,11 @@ function onError(err) {
 }
 
 function init() {
-  const day = new Date().getDay();
+  const day    = new Date().getDay();
+  const header = document.getElementById('header');
+
   if (day === 0 || day === 3) {
+    header.classList.replace('bg-teal-700', 'bg-gray-400');
     setStatus(`今日（週${DAY_NAMES[day]}）垃圾車休息，明天見。`, 'rest');
     return;
   }
@@ -270,10 +183,8 @@ function init() {
 document.getElementById('btnUpcoming').addEventListener('click', () => {
   const now      = nowHHMM();
   const upcoming = allNearby.filter(s => s.depart >= now);
-  const btnAll   = document.getElementById('btnUpcoming');
 
   if (upcoming.length === 0) {
-    document.getElementById('status').hidden = false;
     setStatus('今日附近班次已全數離站。');
     document.getElementById('summary').hidden = true;
     document.getElementById('results').innerHTML = '';
